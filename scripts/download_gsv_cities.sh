@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name=gsv-download
-#SBATCH --partition=cpu
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
 #SBATCH --time=04:00:00
