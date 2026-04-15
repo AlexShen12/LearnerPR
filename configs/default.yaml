@@ -1,0 +1,63 @@
+# LearnerPR — default configuration
+
+# ─── Paths ───────────────────────────────────────────────────────────
+paths:
+  msls_root: /work/${USER}/datasets/msls          # MSLS images root
+  teacher_cache: /work/${USER}/learnerpr/cache/teacher_embeddings.pt
+  checkpoint_dir: /work/${USER}/learnerpr/checkpoints
+  log_dir: /work/${USER}/learnerpr/logs
+
+# ─── Teacher ─────────────────────────────────────────────────────────
+teacher:
+  model_name: Qwen/Qwen3-VL-8B-Instruct
+  image_size: 448
+  batch_size: 16
+  dtype: bfloat16
+  prompt: "Describe this place."            # fixed, never changed
+
+# ─── Student ─────────────────────────────────────────────────────────
+student:
+  backbone: facebook/dinov2-small
+  embed_dim: 384
+  gem_p_init: 3.0
+  freeze_backbone_epochs: 5                 # freeze DINOv2 for first N epochs
+  unfreeze_last_n_blocks: 4                 # then unfreeze last K blocks
+
+# ─── Training ────────────────────────────────────────────────────────
+training:
+  epochs: 30
+  batch_size: 64
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+  scheduler: cosine
+  warmup_epochs: 2
+  alpha_rkd: 1.0                            # weight for RKD loss
+  beta_triplet: 0.5                         # weight for triplet loss
+  triplet_margin: 0.1
+  rkd_temperature: 0.1                      # temperature scaling on teacher sim matrix
+  early_stop_patience: 5                    # epochs without val R@5 improvement
+  early_stop_metric: recall_at_5
+
+# ─── Augmentation (toggled via --augment) ─────────────────────────────
+augmentation:
+  random_resized_crop:
+    size: 224
+    scale: [0.7, 1.0]
+  color_jitter:
+    brightness: 0.4
+    contrast: 0.4
+    saturation: 0.4
+    hue: 0.1
+  random_grayscale_p: 0.1
+  gaussian_blur:
+    enabled: false
+    kernel_size: 23
+    sigma: [0.1, 2.0]
+  random_horizontal_flip:
+    enabled: false
+    p: 0.5
+
+# ─── Evaluation ──────────────────────────────────────────────────────
+evaluation:
+  recall_ks: [1, 5, 10, 20]
+  image_size: 224
