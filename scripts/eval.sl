@@ -1,12 +1,17 @@
 #!/bin/bash
 #SBATCH --job-name=learnerpr-eval
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:a100:1
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=32G
-#SBATCH --time=01:00:00
 #SBATCH --output=outputs/slurm/eval_%j.out
 #SBATCH --error=outputs/slurm/eval_%j.err
+#SBATCH --time=0-01:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=32g
+#SBATCH --gres=gpu:1
+#SBATCH --partition=l40-gpu
+#SBATCH --qos=gpu_access
+#SBATCH --mail-type=begin,end,fail
+#SBATCH --mail-user=alshen@unc.edu
 
 # ─── Evaluate trained student on MSLS or GSV-Cities ─────────────────
 # DATASET:           msls (default) or gsv_cities
@@ -15,6 +20,10 @@
 # HELD_OUT_CITIES:   space-separated GSV city names (omit = auto) [GSV only]
 
 set -euo pipefail
+
+_SL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${_SL_DIR}/slurm_longleaf_init.sh"
 
 CONFIG="${CONFIG:-configs/default.yaml}"
 CHECKPOINT="${CHECKPOINT:-/users/a/l/alshen/LearnerPR/checkpoints/best.pt}"
@@ -30,8 +39,6 @@ echo "Checkpoint:  $CHECKPOINT"
 echo "Batch size:  $BATCH_SIZE"
 echo "GPU:         $(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)"
 echo ""
-
-source activate learnerpr 2>/dev/null || conda activate learnerpr
 
 if [ "$DATASET" = "gsv_cities" ]; then
     EXTRA_ARGS=""

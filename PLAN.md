@@ -124,7 +124,7 @@ Run Qwen3-VL-8B-Instruct over the entire MSLS training set and store the resulti
 L2-normalized vectors in a single `.pt` file keyed by image path. This avoids running
 the 8B model during every training epoch.
 
-**Script:** `scripts/cache_teacher.sh` → calls `src/cache_teacher_embeddings.py`
+**Script:** `scripts/cache_teacher.sl` → calls `src/cache_teacher_embeddings.py` (sources `scripts/slurm_longleaf_init.sh` on Longleaf)
 
 ### Phase 1 — Train student with RKD
 
@@ -135,7 +135,7 @@ the 8B model during every training epoch.
 5. Optimizer: AdamW, lr=1e-4 with cosine decay, weight decay=1e-4.
 6. Epochs: 30 (early-stop on val R@5).
 
-**Script:** `scripts/train.sh` → calls `src/train.py`
+**Script:** `scripts/train.sl` → calls `src/train.py`
 
 ### Phase 2 — Evaluate
 
@@ -143,7 +143,7 @@ the 8B model during every training epoch.
    projection head).
 2. Compute cosine similarities, rank, report **R@1, R@5, R@10, R@20**.
 
-**Script:** `scripts/eval.sh` → calls `src/eval.py`
+**Script:** `scripts/eval.sl` → calls `src/eval.py`
 
 ---
 
@@ -188,9 +188,10 @@ LearnerPR/
 │   ├── train.py
 │   └── eval.py
 ├── scripts/
-│   ├── cache_teacher.sh     ← SLURM job: cache Qwen3-VL embeddings
-│   ├── train.sh             ← SLURM job: train student
-│   └── eval.sh              ← SLURM job: evaluate student
+│   ├── slurm_longleaf_init.sh  ← module add anaconda + conda activate (sourced by *.sl)
+│   ├── cache_teacher.sl     ← SLURM job: cache Qwen3-VL embeddings
+│   ├── train.sl             ← SLURM job: train student
+│   └── eval.sl              ← SLURM job: evaluate student
 ├── configs/
 │   └── default.yaml         ← hyperparams, paths, flags
 └── outputs/                  ← checkpoints, logs, cached embeddings (gitignored)
@@ -200,8 +201,8 @@ LearnerPR/
 
 ## 8. Longleaf Specifics
 
-- **Partition:** `gpu` (A100 nodes).
-- **Modules:** `cuda/12.x`, `anaconda` (or miniconda via setup.sh).
+- **Partition / GPU:** e.g. `l40-gpu` with `--qos=gpu_access` (see `scripts/*.sl`).
+- **Modules:** `module add anaconda/2024.02` then `conda activate learnerpr` via `scripts/slurm_longleaf_init.sh` (or miniconda via `setup.sh`).
 - **Storage:** MSLS images on `/work` or `/pine`; checkpoints + cache under
   `$SLURM_TMPDIR` during job, copied to `/work` on completion.
 - **Walltime estimates:**

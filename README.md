@@ -7,6 +7,12 @@ VPR student: **DINOv2-Small + GeM**, trained with RKD from **Qwen3-VL-8B-Instruc
 - **Training / GSV-Cities:** see below.
 - **COMP 560 alignment (metrics, datasets, integrity):** `PLAN.md` §11.
 
+## Longleaf (UNC) Slurm
+
+Batch jobs use `scripts/slurm_longleaf_init.sh` (sourced from every `*.sl` script): `module purge`, `module add anaconda/2024.02`, `source "$(conda info --base)/etc/profile.d/conda.sh"`, then `conda activate learnerpr`. Run `sbatch` from the inner repo directory that contains `src/` and `configs/` (that path becomes `SLURM_SUBMIT_DIR`).
+
+Optional environment overrides: `ANACONDA_MODULE` (default `anaconda/2024.02`), `CONDA_ENV_NAME` (default `learnerpr`).
+
 ## GSV-Cities setup
 
 GSV-Cities (~530k images, ~62k places across 40+ cities) can be added as a second training source alongside MSLS.
@@ -19,8 +25,7 @@ GSV-Cities (~530k images, ~62k places across 40+ cities) can be added as a secon
 **Download (once):**
 
 ```bash
-bash scripts/download_gsv_cities.sh
-# or: sbatch scripts/download_gsv_cities.sh
+sbatch scripts/download_gsv_cities.sl
 ```
 
 Expected layout after unzip:
@@ -34,7 +39,7 @@ gsv-cities/
 **Cache teacher embeddings for GSV-Cities (once):**
 
 ```bash
-sbatch scripts/cache_teacher_gsv.sh
+sbatch scripts/cache_teacher_gsv.sl
 ```
 
 **Joint training (MSLS + GSV-Cities):**
@@ -47,11 +52,11 @@ training:
 
 Then run training as usual:
 ```bash
-sbatch scripts/train.sh
+sbatch scripts/train.sl
 ```
 
 **GSV-Cities eval (held-out cities):**
 
 ```bash
-sbatch scripts/eval_gsv.sh
+sbatch scripts/eval_gsv.sl
 ```

@@ -1,10 +1,15 @@
 #!/bin/bash
 #SBATCH --job-name=gsv-download
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=16G
-#SBATCH --time=04:00:00
 #SBATCH --output=outputs/slurm/gsv_download_%j.out
 #SBATCH --error=outputs/slurm/gsv_download_%j.err
+#SBATCH --time=0-04:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=16g
+#SBATCH --partition=general
+#SBATCH --mail-type=begin,end,fail
+#SBATCH --mail-user=alshen@unc.edu
 
 # ─── Download and unpack GSV-Cities from Kaggle ─────────────────────
 #
@@ -16,10 +21,14 @@
 #   3. kaggle Python package installed (handled below if missing).
 #
 # Environment variables:
-#   GSV_CITIES_ROOT  — where to unpack (default /work/$USER/datasets/gsv-cities)
+#   GSV_CITIES_ROOT  — where to unpack (default /users/a/l/alshen/LearnerPR/datasets/gsv-cities)
 #   KAGGLE_CONFIG_DIR — directory containing kaggle.json (default ~/.kaggle)
 
 set -euo pipefail
+
+_SL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${_SL_DIR}/slurm_longleaf_init.sh"
 
 GSV_CITIES_ROOT="${GSV_CITIES_ROOT:-/users/a/l/alshen/LearnerPR/datasets/gsv-cities}"
 KAGGLE_DATASET="amaralibey/gsv-cities"
@@ -31,9 +40,6 @@ echo "=== LearnerPR: Download GSV-Cities ==="
 echo "Destination:  $GSV_CITIES_ROOT"
 echo "Kaggle creds: $KAGGLE_CONFIG_DIR/kaggle.json"
 echo ""
-
-# ── Activate env ─────────────────────────────────────────────────────
-source activate learnerpr 2>/dev/null || conda activate learnerpr
 
 # ── Ensure kaggle CLI is available ───────────────────────────────────
 if ! python -c "import kaggle" &>/dev/null; then

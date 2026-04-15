@@ -1,18 +1,27 @@
 #!/bin/bash
 #SBATCH --job-name=learnerpr-cache
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:a100:1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=64G
-#SBATCH --time=06:00:00
 #SBATCH --output=outputs/slurm/cache_%j.out
 #SBATCH --error=outputs/slurm/cache_%j.err
+#SBATCH --time=0-06:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64g
+#SBATCH --gres=gpu:1
+#SBATCH --partition=l40-gpu
+#SBATCH --qos=gpu_access
+#SBATCH --mail-type=begin,end,fail
+#SBATCH --mail-user=alshen@unc.edu
 
 # ─── Cache Qwen3-VL-8B teacher embeddings for MSLS ─────────────────
 # Run ONCE before training.  Supports resumption — re-submit if it
 # times out and it will skip already-cached images.
 
 set -euo pipefail
+
+_SL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${_SL_DIR}/slurm_longleaf_init.sh"
 
 MSLS_ROOT="${MSLS_ROOT:-/users/a/l/alshen/LearnerPR/datasets/msls}"
 OUTPUT="${TEACHER_CACHE:-/users/a/l/alshen/LearnerPR/cache/teacher_embeddings_msls.pt}"
@@ -32,8 +41,6 @@ echo "Subset:     $SUBSET"
 echo "Batch size: $BATCH_SIZE"
 echo "GPU:        $(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)"
 echo ""
-
-source activate learnerpr 2>/dev/null || conda activate learnerpr
 
 python src/cache_teacher_embeddings.py \
     --dataset msls \
