@@ -3,7 +3,9 @@
 # ─── Paths ───────────────────────────────────────────────────────────
 paths:
   msls_root: /work/${USER}/datasets/msls          # MSLS images root
-  teacher_cache: /work/${USER}/learnerpr/cache/teacher_embeddings.pt
+  teacher_cache: /work/${USER}/learnerpr/cache/teacher_embeddings_msls.pt
+  gsv_cities_root: /work/${USER}/datasets/gsv-cities  # GSV-Cities root
+  teacher_cache_gsv: /work/${USER}/learnerpr/cache/teacher_embeddings_gsv.pt
   checkpoint_dir: /work/${USER}/learnerpr/checkpoints
   log_dir: /work/${USER}/learnerpr/logs
 
@@ -37,6 +39,14 @@ training:
   rkd_temperature: 0.1                      # temperature scaling on teacher sim matrix
   early_stop_patience: 5                    # epochs without val R@5 improvement
   early_stop_metric: recall_at_5
+  # Datasets to include in training.  Options: msls, gsv_cities (or both).
+  train_datasets: [msls]
+  # GSV-Cities held-out val cities.  Leave empty to auto-select by gsv_val_fraction.
+  gsv_val_cities: []
+  # Fraction of GSV cities to hold out when gsv_val_cities is empty.
+  gsv_val_fraction: 0.1
+  # Log GSV val Recall@K each epoch when gsv_cities is in train_datasets.
+  gsv_val_enabled: true
 
 # ─── Augmentation (toggled via --augment) ─────────────────────────────
 augmentation:

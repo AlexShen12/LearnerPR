@@ -15,9 +15,10 @@ import os
 from pathlib import Path
 
 import pandas as pd
-import torch
 from PIL import Image
 from torch.utils.data import Dataset
+
+from data.cached_teacher import CachedTeacherDataset
 
 
 class MSLSDataset(Dataset):
@@ -92,25 +93,5 @@ class MSLSDataset(Dataset):
         }
 
 
-class TeacherCacheDataset(Dataset):
-    """Wraps MSLSDataset and pairs each sample with its cached teacher embedding."""
-
-    def __init__(self, msls_dataset: MSLSDataset, cache_path: str):
-        self.msls = msls_dataset
-        self.cache: dict[str, torch.Tensor] = torch.load(cache_path, map_location="cpu")
-
-    def __len__(self) -> int:
-        return len(self.msls)
-
-    def __getitem__(self, idx: int) -> dict:
-        sample = self.msls[idx]
-        teacher_embed = self.cache.get(sample["path"])
-        if teacher_embed is None:
-            teacher_embed = self.cache.get(sample["key"])
-        if teacher_embed is None:
-            raise KeyError(
-                f"Teacher embedding not found for {sample['path']} / {sample['key']}. "
-                "Re-run cache_teacher_embeddings.py."
-            )
-        sample["teacher_embed"] = teacher_embed
-        return sample
+# Backward-compatible alias — prefer CachedTeacherDataset for new code.
+TeacherCacheDataset = CachedTeacherDataset

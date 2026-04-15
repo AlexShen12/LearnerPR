@@ -9,18 +9,19 @@ Usage:
 
 import argparse
 import os
-import sys
 from pathlib import Path
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from torch.utils.data import ConcatDataset, DataLoader
 from tqdm import tqdm
 import yaml
 
 from models.student import StudentModel
 from losses.rkd import CombinedLoss
-from data.msls import MSLSDataset, TeacherCacheDataset
+from data.msls import MSLSDataset
+from data.gsv_cities import GSVCitiesDataset, auto_val_cities, make_gsv_val_splits
+from data.cached_teacher import CachedTeacherDataset
 from data.augmentations import get_train_transform, get_eval_transform
 
 
@@ -95,18 +96,68 @@ def main():
     eval_transform = get_eval_transform(image_size=cfg["evaluation"]["image_size"])
 
     # ── Datasets ─────────────────────────────────────────────────────
-    msls_root = os.path.expandvars(cfg["paths"]["msls_root"])
-    cache_path = os.path.expandvars(cfg["paths"]["teacher_cache"])
     ckpt_dir = Path(os.path.expandvars(cfg["paths"]["checkpoint_dir"]))
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
-    train_ds = MSLSDataset(msls_root, split="train", subset="database", transform=train_transform)
-    train_cache_ds = TeacherCacheDataset(train_ds, cache_path)
+    train_datasets_cfg: list[str] = tcfg.get("train_datasets", ["msls"])
+    train_parts: list = []
+
+    # MSLS training set
+    if "msls" in train_datasets_cfg:
+        msls_root = os.path.expandvars(cfg["paths"]["msls_root"])
+        msls_cache = os.path.expandvars(cfg["paths"]["teacher_cache"])
+        msls_train_ds = MSLSDataset(msls_root, split="train", subset="database",
+                                    transform=train_transform)
+        train_parts.append(CachedTeacherDataset(msls_train_ds, msls_cache))
+        print(f"MSLS train: {len(msls_train_ds)} images")
+
+    # GSV-Cities training set
+    gsv_val_db_loader = gsv_val_q_loader = None
+    if "gsv_cities" in train_datasets_cfg:
+        gsv_root = os.path.expandvars(cfg["paths"]["gsv_cities_root"])
+        gsv_cache = os.path.expandvars(cfg["paths"]["teacher_cache_gsv"])
+
+        val_cities_cfg: list[str] = tcfg.get("gsv_val_cities", [])
+        if val_cities_cfg:
+            val_cities = val_cities_cfg
+            train_cities, _ = auto_val_cities(gsv_root, fraction=0.0)
+            # exclude val cities from train
+            train_cities = [c for c in train_cities if c not in val_cities]
+        else:
+            train_cities, val_cities = auto_val_cities(
+                gsv_root, fraction=tcfg.get("gsv_val_fraction", 0.1)
+            )
+
+        gsv_train_ds = GSVCitiesDataset(gsv_root, cities=train_cities,
+                                        transform=train_transform)
+        train_parts.append(CachedTeacherDataset(gsv_train_ds, gsv_cache))
+        print(f"GSV-Cities train: {len(gsv_train_ds)} images  ({len(train_cities)} cities)")
+
+        if tcfg.get("gsv_val_enabled", True) and val_cities:
+            gsv_val_db_ds, gsv_val_q_ds = make_gsv_val_splits(
+                gsv_root, val_cities, transform=eval_transform
+            )
+            gsv_val_db_loader = DataLoader(
+                gsv_val_db_ds, batch_size=batch_size, num_workers=4, pin_memory=True
+            )
+            gsv_val_q_loader = DataLoader(
+                gsv_val_q_ds, batch_size=batch_size, num_workers=4, pin_memory=True
+            )
+            print(f"GSV-Cities val:   {len(gsv_val_db_ds)} db / {len(gsv_val_q_ds)} queries"
+                  f"  ({len(val_cities)} held-out cities)")
+
+    if not train_parts:
+        raise ValueError("train_datasets must contain at least one of: msls, gsv_cities")
+
+    combined_train_ds = ConcatDataset(train_parts) if len(train_parts) > 1 else train_parts[0]
     train_loader = DataLoader(
-        train_cache_ds, batch_size=batch_size, shuffle=True,
+        combined_train_ds, batch_size=batch_size, shuffle=True,
         num_workers=4, pin_memory=True, drop_last=True,
     )
+    print(f"Total train samples: {len(combined_train_ds)}")
 
+    # MSLS val (primary early-stopping signal, always built when MSLS is available)
+    msls_root = os.path.expandvars(cfg["paths"]["msls_root"])
     val_db_ds = MSLSDataset(msls_root, split="val", subset="database", transform=eval_transform)
     val_q_ds = MSLSDataset(msls_root, split="val", subset="query", transform=eval_transform)
     val_db_loader = DataLoader(val_db_ds, batch_size=batch_size, num_workers=4, pin_memory=True)
@@ -180,11 +231,17 @@ def main():
         avg_loss = epoch_loss / len(train_loader)
         print(f"Epoch {epoch+1} — loss: {avg_loss:.4f}, lr: {scheduler.get_last_lr()[0]:.2e}")
 
-        # ── Validation ───────────────────────────────────────────────
+        # ── Validation — MSLS (primary early-stop signal) ────────────
         ks = tuple(cfg["evaluation"]["recall_ks"])
         metrics = evaluate(model, val_db_loader, val_q_loader, device, ks=ks)
         metric_str = "  ".join(f"R@{k}: {metrics[f'recall_at_{k}']:.4f}" for k in ks)
-        print(f"  Val: {metric_str}")
+        print(f"  MSLS val:    {metric_str}")
+
+        # ── Validation — GSV-Cities (informational only) ─────────────
+        if gsv_val_db_loader is not None and gsv_val_q_loader is not None:
+            gsv_metrics = evaluate(model, gsv_val_db_loader, gsv_val_q_loader, device, ks=ks)
+            gsv_str = "  ".join(f"R@{k}: {gsv_metrics[f'recall_at_{k}']:.4f}" for k in ks)
+            print(f"  GSV val:     {gsv_str}")
 
         current_recall = metrics[f"recall_at_{tcfg['early_stop_metric'].split('_')[-1]}"]
 

@@ -36,6 +36,7 @@ echo ""
 source activate learnerpr 2>/dev/null || conda activate learnerpr
 
 python src/cache_teacher_embeddings.py \
+    --dataset msls \
     --msls_root "$MSLS_ROOT" \
     --output "$OUTPUT" \
     --model_name "$MODEL" \
