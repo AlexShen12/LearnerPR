@@ -14,8 +14,8 @@
 
 set -euo pipefail
 
-MSLS_ROOT="${MSLS_ROOT:-/work/${USER}/datasets/msls}"
-OUTPUT="${TEACHER_CACHE:-/work/${USER}/learnerpr/cache/teacher_embeddings.pt}"
+MSLS_ROOT="${MSLS_ROOT:-/users/a/l/alshen/LearnerPR/datasets/msls}"
+OUTPUT="${TEACHER_CACHE:-/users/a/l/alshen/LearnerPR/cache/teacher_embeddings_msls.pt}"
 MODEL="Qwen/Qwen3-VL-8B-Instruct"
 BATCH_SIZE="${BATCH_SIZE:-16}"
 SPLIT="${SPLIT:-train}"

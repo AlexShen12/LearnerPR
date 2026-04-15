@@ -21,7 +21,7 @@
 
 set -euo pipefail
 
-GSV_CITIES_ROOT="${GSV_CITIES_ROOT:-/work/${USER}/datasets/gsv-cities}"
+GSV_CITIES_ROOT="${GSV_CITIES_ROOT:-/users/a/l/alshen/LearnerPR/datasets/gsv-cities}"
 KAGGLE_DATASET="amaralibey/gsv-cities"
 KAGGLE_CONFIG_DIR="${KAGGLE_CONFIG_DIR:-${HOME}/.kaggle}"
 

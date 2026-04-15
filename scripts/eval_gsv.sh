@@ -15,7 +15,7 @@
 set -euo pipefail
 
 CONFIG="${CONFIG:-configs/default.yaml}"
-CHECKPOINT="${CHECKPOINT:-/work/${USER}/learnerpr/checkpoints/best.pt}"
+CHECKPOINT="${CHECKPOINT:-/users/a/l/alshen/LearnerPR/checkpoints/best.pt}"
 BATCH_SIZE="${BATCH_SIZE:-128}"
 HELD_OUT_CITIES="${HELD_OUT_CITIES:-}"  # e.g. "Austin Bangkok BuenosAires"
 

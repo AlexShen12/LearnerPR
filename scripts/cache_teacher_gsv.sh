@@ -17,8 +17,8 @@
 
 set -euo pipefail
 
-GSV_CITIES_ROOT="${GSV_CITIES_ROOT:-/work/${USER}/datasets/gsv-cities}"
-OUTPUT="${TEACHER_CACHE_GSV:-/work/${USER}/learnerpr/cache/teacher_embeddings_gsv.pt}"
+GSV_CITIES_ROOT="${GSV_CITIES_ROOT:-/users/a/l/alshen/LearnerPR/datasets/gsv-cities}"
+OUTPUT="${TEACHER_CACHE_GSV:-/users/a/l/alshen/LearnerPR/cache/teacher_embeddings_gsv.pt}"
 MODEL="Qwen/Qwen3-VL-8B-Instruct"
 BATCH_SIZE="${BATCH_SIZE:-16}"
 GSV_CITIES="${GSV_CITIES:-}"   # empty = all cities

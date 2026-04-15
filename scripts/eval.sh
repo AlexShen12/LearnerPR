@@ -17,7 +17,7 @@
 set -euo pipefail
 
 CONFIG="${CONFIG:-configs/default.yaml}"
-CHECKPOINT="${CHECKPOINT:-/work/${USER}/learnerpr/checkpoints/best.pt}"
+CHECKPOINT="${CHECKPOINT:-/users/a/l/alshen/LearnerPR/checkpoints/best.pt}"
 DATASET="${DATASET:-msls}"
 SPLIT="${SPLIT:-val}"
 BATCH_SIZE="${BATCH_SIZE:-128}"

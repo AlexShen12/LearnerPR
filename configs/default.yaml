@@ -2,12 +2,12 @@
 
 # ─── Paths ───────────────────────────────────────────────────────────
 paths:
-  msls_root: /work/${USER}/datasets/msls          # MSLS images root
-  teacher_cache: /work/${USER}/learnerpr/cache/teacher_embeddings_msls.pt
-  gsv_cities_root: /work/${USER}/datasets/gsv-cities  # GSV-Cities root
-  teacher_cache_gsv: /work/${USER}/learnerpr/cache/teacher_embeddings_gsv.pt
-  checkpoint_dir: /work/${USER}/learnerpr/checkpoints
-  log_dir: /work/${USER}/learnerpr/logs
+  msls_root: /users/a/l/alshen/LearnerPR/datasets/msls
+  teacher_cache: /users/a/l/alshen/LearnerPR/cache/teacher_embeddings_msls.pt
+  gsv_cities_root: /users/a/l/alshen/LearnerPR/datasets/gsv-cities
+  teacher_cache_gsv: /users/a/l/alshen/LearnerPR/cache/teacher_embeddings_gsv.pt
+  checkpoint_dir: /users/a/l/alshen/LearnerPR/checkpoints
+  log_dir: /users/a/l/alshen/LearnerPR/logs
 
 # ─── Teacher ─────────────────────────────────────────────────────────
 teacher:

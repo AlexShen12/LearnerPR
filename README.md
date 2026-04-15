@@ -19,8 +19,7 @@ GSV-Cities (~530k images, ~62k places across 40+ cities) can be added as a secon
 **Download (once):**
 
 ```bash
-GSV_CITIES_ROOT=/work/$USER/datasets/gsv-cities \
-    bash scripts/download_gsv_cities.sh
+bash scripts/download_gsv_cities.sh
 # or: sbatch scripts/download_gsv_cities.sh
 ```
 
@@ -35,8 +34,7 @@ gsv-cities/
 **Cache teacher embeddings for GSV-Cities (once):**
 
 ```bash
-GSV_CITIES_ROOT=/work/$USER/datasets/gsv-cities \
-    sbatch scripts/cache_teacher_gsv.sh
+sbatch scripts/cache_teacher_gsv.sh
 ```
 
 **Joint training (MSLS + GSV-Cities):**
@@ -55,6 +53,5 @@ sbatch scripts/train.sh
 **GSV-Cities eval (held-out cities):**
 
 ```bash
-CHECKPOINT=/work/$USER/learnerpr/checkpoints/best.pt \
-    sbatch scripts/eval_gsv.sh
+sbatch scripts/eval_gsv.sh
 ```
