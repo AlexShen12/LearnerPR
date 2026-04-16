@@ -9,11 +9,11 @@ VPR student: **DINOv2-Small + GeM**, trained with RKD from **Qwen3-VL-8B-Instruc
 
 ## Longleaf (UNC) Slurm
 
-Batch jobs use `scripts/slurm_longleaf_init.sh` (sourced from every `*.sl` script): `module purge`, `module add anaconda/2024.02`, `source "$(conda info --base)/etc/profile.d/conda.sh"`, then `conda activate learnerpr`.
+Batch jobs source `scripts/slurm_longleaf_init.sh`, which: loads the Anaconda module, runs `conda activate "${CONDA_ENV_NAME:-learnerpr}"`, exports **`PYTHON`** as `${CONDA_PREFIX}/bin/python`, and verifies `import torch` (skipped for the GSV download job via `LEARNERPR_SKIP_TORCH_CHECK=1`). All `*.sl` scripts invoke `"${PYTHON}" src/...` so Slurm never falls back to system `/usr/bin/python`.
 
 **Repo path:** Each `*.sl` sets `LEARNERPR_REPO` (default `/users/a/l/alshen/LearnerPR/LearnerPR`) and sources `scripts/slurm_longleaf_init.sh` from there, then `cd`s into that directory so `python src/...` works even when Slurm copies the batch script to `/var/spool/...` or you `sbatch` from a parent folder. Override if your clone lives elsewhere: `LEARNERPR_REPO=/path/to/inner/LearnerPR sbatch scripts/train.sl`.
 
-Optional environment overrides: `ANACONDA_MODULE` (default `anaconda/2024.02`), `CONDA_ENV_NAME` (default `learnerpr`).
+Optional environment overrides: `ANACONDA_MODULE` (default `anaconda/2024.02`), `CONDA_ENV_NAME` (default `learnerpr`). Install deps in that env (`pip install -r requirements.txt`) so the torch check passes.
 
 ## GSV-Cities setup
 

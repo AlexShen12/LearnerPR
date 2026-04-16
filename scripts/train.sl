@@ -55,7 +55,7 @@ if [ -n "$RESUME" ]; then
     EXTRA_ARGS="$EXTRA_ARGS --resume $RESUME"
 fi
 
-python src/train.py \
+"${PYTHON}" src/train.py \
     --config "$CONFIG" \
     --epochs "$EPOCHS" \
     --batch_size "$BATCH_SIZE" \

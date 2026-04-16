@@ -47,7 +47,7 @@ echo "Batch size: $BATCH_SIZE"
 echo "GPU:        $(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)"
 echo ""
 
-python src/cache_teacher_embeddings.py \
+"${PYTHON}" src/cache_teacher_embeddings.py \
     --dataset msls \
     --msls_root "$MSLS_ROOT" \
     --output "$OUTPUT" \

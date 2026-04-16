@@ -47,7 +47,7 @@ if [ -n "$HELD_OUT_CITIES" ]; then
     EXTRA_ARGS="--held_out_cities $HELD_OUT_CITIES"
 fi
 
-python src/eval_gsv.py \
+"${PYTHON}" src/eval_gsv.py \
     --config "$CONFIG" \
     --checkpoint "$CHECKPOINT" \
     --batch_size "$BATCH_SIZE" \

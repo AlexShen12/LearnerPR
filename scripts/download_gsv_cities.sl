@@ -28,6 +28,8 @@ set -euo pipefail
 
 # Inner checkout (contains src/, configs/, scripts/).  sbatch cwd can be the
 # parent folder — this path must point at the repo that holds slurm_longleaf_init.sh.
+# Download job does not need PyTorch; skip the import check in slurm_longleaf_init.sh.
+export LEARNERPR_SKIP_TORCH_CHECK=1
 export LEARNERPR_REPO="${LEARNERPR_REPO:-/users/a/l/alshen/LearnerPR/LearnerPR}"
 if [[ ! -f "${LEARNERPR_REPO}/scripts/slurm_longleaf_init.sh" ]]; then
     echo "ERROR: ${LEARNERPR_REPO}/scripts/slurm_longleaf_init.sh not found." >&2
@@ -49,9 +51,9 @@ echo "Kaggle creds: $KAGGLE_CONFIG_DIR/kaggle.json"
 echo ""
 
 # ── Ensure kaggle CLI is available ───────────────────────────────────
-if ! python -c "import kaggle" &>/dev/null; then
+if ! "${PYTHON}" -c "import kaggle" &>/dev/null; then
     echo "Installing kaggle Python package..."
-    pip install --quiet kaggle
+    "${PYTHON}" -m pip install --quiet kaggle
 fi
 
 # ── Verify credentials ───────────────────────────────────────────────

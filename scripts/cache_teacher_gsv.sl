@@ -53,7 +53,7 @@ if [ -n "$GSV_CITIES" ]; then
     EXTRA_ARGS="--gsv_cities $GSV_CITIES"
 fi
 
-python src/cache_teacher_embeddings.py \
+"${PYTHON}" src/cache_teacher_embeddings.py \
     --dataset gsv_cities \
     --gsv_cities_root "$GSV_CITIES_ROOT" \
     --output "$OUTPUT" \
