@@ -1,6 +1,9 @@
 #!/bin/bash
 # Sourced by LearnerPR *.sl batch scripts — not meant to be submitted alone.
 #
+# Parent *.sl jobs must resolve this file via SLURM_SUBMIT_DIR (Slurm copies the
+# batch script to /var/spool/.../slurm_script; BASH_SOURCE there is not the repo).
+#
 # Longleaf (UNC): batch jobs do not load your login-shell conda init.  Use
 # `module add anaconda` then `conda.sh` + `conda activate`.
 #

@@ -26,13 +26,20 @@
 
 set -euo pipefail
 
-_SL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Slurm runs a *copy* of this script under /var/spool/slurmd/.../slurm_script, so
+# dirname(BASH_SOURCE) is not the repo.  Use SLURM_SUBMIT_DIR (cwd at sbatch time).
+if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
+    _REPO="${SLURM_SUBMIT_DIR}"
+else
+    _script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    _REPO="$(cd "${_script_dir}/.." && pwd)"
+fi
 # shellcheck disable=SC1091
-source "${_SL_DIR}/slurm_longleaf_init.sh"
+source "${_REPO}/scripts/slurm_longleaf_init.sh"
 
 GSV_CITIES_ROOT="${GSV_CITIES_ROOT:-/users/a/l/alshen/LearnerPR/datasets/gsv-cities}"
 KAGGLE_DATASET="amaralibey/gsv-cities"
-KAGGLE_CONFIG_DIR="${KAGGLE_CONFIG_DIR:-${HOME}/.kaggle}"
+KAGGLE_CONFIG_DIR="${KAGGLE_CONFIG_DIR:-/users/a/l/alshen/.kaggle}"
 
 mkdir -p "$GSV_CITIES_ROOT" outputs/slurm
 

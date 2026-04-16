@@ -19,9 +19,14 @@
 
 set -euo pipefail
 
-_SL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
+    _REPO="${SLURM_SUBMIT_DIR}"
+else
+    _script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    _REPO="$(cd "${_script_dir}/.." && pwd)"
+fi
 # shellcheck disable=SC1091
-source "${_SL_DIR}/slurm_longleaf_init.sh"
+source "${_REPO}/scripts/slurm_longleaf_init.sh"
 
 CONFIG="${CONFIG:-configs/default.yaml}"
 EPOCHS="${EPOCHS:-30}"
