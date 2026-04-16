@@ -75,3 +75,7 @@ class DINOv2GeMStudent(nn.Module):
         if self.use_projection:
             desc = self.projection(desc)
         return F.normalize(desc, p=2, dim=-1)
+
+
+# Backward-compat alias for training/eval imports.
+StudentModel = DINOv2GeMStudent

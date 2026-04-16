@@ -20,7 +20,10 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import yaml
 
-from models.student import StudentModel
+try:
+    from models.student import StudentModel
+except ImportError:
+    from models.student import DINOv2GeMStudent as StudentModel
 from data.gsv_cities import auto_val_cities, make_gsv_val_splits
 from data.augmentations import get_eval_transform
 
