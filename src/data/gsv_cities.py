@@ -43,6 +43,36 @@ def _city_rank_map(images_dir: Path) -> dict[str, int]:
     return {d.name: rank for rank, d in enumerate(sorted(images_dir.iterdir()))}
 
 
+def sorted_city_image_paths(city_dir: Path) -> list[Path]:
+    """List image files in one GSV-Cities city folder.
+
+    The Kaggle release uses ``*.JPG``; some copies or tools write ``*.jpg``.
+    Linux globs are case-sensitive, so we match by suffix instead of ``*.JPG`` only.
+    """
+    if not city_dir.is_dir():
+        return []
+    out: list[Path] = []
+    for p in city_dir.iterdir():
+        if p.is_file() and p.suffix.lower() in (".jpg", ".jpeg"):
+            out.append(p)
+    return sorted(out, key=lambda x: x.name.lower())
+
+
+def collect_gsv_cities_paths(root: str, cities: list[str] | None = None) -> list[str]:
+    """Absolute paths to all images under ``<root>/Images/<City>/``."""
+    images_dir = Path(root) / "Images"
+    if not images_dir.is_dir():
+        return []
+    available = sorted(d.name for d in images_dir.iterdir() if d.is_dir())
+    selected = cities if cities is not None else available
+    paths: list[str] = []
+    for city in selected:
+        city_dir = images_dir / city
+        if city_dir.is_dir():
+            paths.extend(str(p.resolve()) for p in sorted_city_image_paths(city_dir))
+    return paths
+
+
 class GSVCitiesDataset(Dataset):
     """All images from the selected GSV-Cities cities.
 
@@ -77,7 +107,7 @@ class GSVCitiesDataset(Dataset):
             if not city_dir.exists():
                 continue
             rank = rank_map[city]
-            for fpath in sorted(city_dir.glob("*.JPG")):
+            for fpath in sorted_city_image_paths(city_dir):
                 local_pid = _parse_place_id_from_name(fpath.name)
                 if local_pid is None:
                     continue
@@ -164,7 +194,7 @@ def make_gsv_val_splits(
 
         # Group images by local place_id
         place_to_files: dict[int, list[Path]] = defaultdict(list)
-        for fpath in sorted(city_dir.glob("*.JPG")):
+        for fpath in sorted_city_image_paths(city_dir):
             local_pid = _parse_place_id_from_name(fpath.name)
             if local_pid is None:
                 continue

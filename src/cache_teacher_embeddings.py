@@ -26,6 +26,7 @@ from pathlib import Path
 import torch
 from tqdm import tqdm
 
+from data.gsv_cities import collect_gsv_cities_paths
 from models.teacher import load_teacher, extract_embeddings
 
 
@@ -77,19 +78,6 @@ def collect_msls_paths(root: str, split: str, subset: str) -> list[str]:
     return paths
 
 
-def collect_gsv_cities_paths(root: str, cities: list[str] | None = None) -> list[str]:
-    """Gather all .JPG paths from the GSV-Cities Images/ directory."""
-    images_dir = Path(root) / "Images"
-    available = sorted(d.name for d in images_dir.iterdir() if d.is_dir())
-    selected = cities if cities is not None else available
-    paths: list[str] = []
-    for city in selected:
-        city_dir = images_dir / city
-        if city_dir.exists():
-            paths.extend(str(p.resolve()) for p in sorted(city_dir.glob("*.JPG")))
-    return paths
-
-
 def main():
     args = parse_args()
     os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
@@ -107,6 +95,13 @@ def main():
         paths = collect_gsv_cities_paths(args.gsv_cities_root, cities)
         label = ", ".join(cities) if cities else "all cities"
         print(f"Dataset: GSV-Cities  cities={label}")
+        if len(paths) == 0:
+            _img = Path(args.gsv_cities_root) / "Images"
+            print(
+                f"Hint: expected images under {_img}/<City>/ with .jpg or .JPG. "
+                f"Images dir exists: {_img.is_dir()}.",
+                flush=True,
+            )
 
     print(f"Found {len(paths)} images to cache.")
 
