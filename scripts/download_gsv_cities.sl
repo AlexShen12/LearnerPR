@@ -26,16 +26,16 @@
 
 set -euo pipefail
 
-# Slurm runs a *copy* of this script under /var/spool/slurmd/.../slurm_script, so
-# dirname(BASH_SOURCE) is not the repo.  Use SLURM_SUBMIT_DIR (cwd at sbatch time).
-if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
-    _REPO="${SLURM_SUBMIT_DIR}"
-else
-    _script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    _REPO="$(cd "${_script_dir}/.." && pwd)"
+# Inner checkout (contains src/, configs/, scripts/).  sbatch cwd can be the
+# parent folder — this path must point at the repo that holds slurm_longleaf_init.sh.
+export LEARNERPR_REPO="${LEARNERPR_REPO:-/users/a/l/alshen/LearnerPR/LearnerPR}"
+if [[ ! -f "${LEARNERPR_REPO}/scripts/slurm_longleaf_init.sh" ]]; then
+    echo "ERROR: ${LEARNERPR_REPO}/scripts/slurm_longleaf_init.sh not found." >&2
+    echo "Set LEARNERPR_REPO to the directory that contains scripts/ and src/." >&2
+    exit 1
 fi
 # shellcheck disable=SC1091
-source "${_REPO}/scripts/slurm_longleaf_init.sh"
+source "${LEARNERPR_REPO}/scripts/slurm_longleaf_init.sh"
 
 GSV_CITIES_ROOT="${GSV_CITIES_ROOT:-/users/a/l/alshen/LearnerPR/datasets/gsv-cities}"
 KAGGLE_DATASET="amaralibey/gsv-cities"

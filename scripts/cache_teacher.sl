@@ -19,14 +19,14 @@
 
 set -euo pipefail
 
-if [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
-    _REPO="${SLURM_SUBMIT_DIR}"
-else
-    _script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    _REPO="$(cd "${_script_dir}/.." && pwd)"
+export LEARNERPR_REPO="${LEARNERPR_REPO:-/users/a/l/alshen/LearnerPR/LearnerPR}"
+if [[ ! -f "${LEARNERPR_REPO}/scripts/slurm_longleaf_init.sh" ]]; then
+    echo "ERROR: ${LEARNERPR_REPO}/scripts/slurm_longleaf_init.sh not found." >&2
+    echo "Set LEARNERPR_REPO to the directory that contains scripts/ and src/." >&2
+    exit 1
 fi
 # shellcheck disable=SC1091
-source "${_REPO}/scripts/slurm_longleaf_init.sh"
+source "${LEARNERPR_REPO}/scripts/slurm_longleaf_init.sh"
 
 MSLS_ROOT="${MSLS_ROOT:-/users/a/l/alshen/LearnerPR/datasets/msls}"
 OUTPUT="${TEACHER_CACHE:-/users/a/l/alshen/LearnerPR/cache/teacher_embeddings_msls.pt}"
