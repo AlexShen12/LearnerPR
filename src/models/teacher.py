@@ -3,13 +3,22 @@
 import torch
 import torch.nn.functional as F
 from qwen_vl_utils import process_vision_info
-from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
+from transformers import AutoProcessor
+
+try:
+    from transformers import Qwen3VLForConditionalGeneration
+except ImportError as exc:
+    raise ImportError(
+        "Qwen3-VL needs a recent transformers with Qwen3VLForConditionalGeneration "
+        "(e.g. pip install -U 'transformers>=4.57.0' — Qwen3-VL needs Qwen3VLForConditionalGeneration). "
+        "Do not load Qwen3 checkpoints into Qwen2_5_VL — weights will not match."
+    ) from exc
 
 
 def load_teacher(model_name: str = "Qwen/Qwen3-VL-8B-Instruct", dtype=torch.bfloat16):
     """Load the teacher model and processor.  Returns (model, processor)."""
     processor = AutoProcessor.from_pretrained(model_name)
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+    model = Qwen3VLForConditionalGeneration.from_pretrained(
         model_name,
         torch_dtype=dtype,
         device_map="auto",
