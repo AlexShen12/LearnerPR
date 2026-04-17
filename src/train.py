@@ -47,9 +47,12 @@ def load_config(path: str) -> dict:
 def recall_at_k(query_embeds, db_embeds, query_place_ids, db_place_ids, ks=(1, 5, 10, 20)):
     """Compute Recall@K for a set of query and database embeddings."""
     sims = query_embeds @ db_embeds.t()
+    n_db = db_embeds.shape[0]
     results = {}
     for k in ks:
-        topk_indices = sims.topk(k, dim=1).indices
+        # Guard against databases smaller than k (e.g. tiny GSV val splits).
+        effective_k = min(k, n_db)
+        topk_indices = sims.topk(effective_k, dim=1).indices
         correct = 0
         for i, qid in enumerate(query_place_ids):
             retrieved_ids = [db_place_ids[j] for j in topk_indices[i]]
@@ -212,10 +215,13 @@ def main():
         if epoch == scfg["freeze_backbone_epochs"]:
             print(f"Epoch {epoch}: unfreezing last {scfg['unfreeze_last_n_blocks']} blocks.")
             model.unfreeze_last_n_blocks(scfg["unfreeze_last_n_blocks"])
+            backbone_lr = lr * 0.1
             optimizer.add_param_group({
                 "params": [p for p in model.backbone.parameters() if p.requires_grad],
-                "lr": lr * 0.1,
+                "lr": backbone_lr,
             })
+            # Register the new group with the scheduler so it follows cosine decay.
+            scheduler.base_lrs.append(backbone_lr)
 
         epoch_loss = 0.0
         for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}"):

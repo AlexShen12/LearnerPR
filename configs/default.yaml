@@ -34,7 +34,7 @@ training:
   scheduler: cosine
   warmup_epochs: 2
   alpha_rkd: 1.0                            # weight for RKD loss
-  beta_triplet: 0.5                         # weight for triplet loss
+  beta_triplet: 0.0                        # weight for triplet loss
   triplet_margin: 0.1
   rkd_temperature: 0.1                      # temperature scaling on teacher sim matrix
   early_stop_patience: 5                    # epochs without val R@5 improvement
