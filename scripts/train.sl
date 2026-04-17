@@ -2,7 +2,7 @@
 #SBATCH --job-name=learnerpr-train
 #SBATCH --output=outputs/slurm/train_%j.out
 #SBATCH --error=outputs/slurm/train_%j.err
-#SBATCH --time=1-00:00:00
+#SBATCH --time=4-00:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8

@@ -2,7 +2,7 @@
 #SBATCH --job-name=learnerpr-cache-gsv
 #SBATCH --output=outputs/slurm/cache_gsv_%j.out
 #SBATCH --error=outputs/slurm/cache_gsv_%j.err
-#SBATCH --time=0-12:00:00
+#SBATCH --time=2-00:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8

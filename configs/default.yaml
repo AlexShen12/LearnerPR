@@ -40,7 +40,7 @@ training:
   early_stop_patience: 5                    # epochs without val R@5 improvement
   early_stop_metric: recall_at_5
   # Datasets to include in training.  Options: msls, gsv_cities (or both).
-  train_datasets: [msls]
+  train_datasets: [gsv_cities]
   # GSV-Cities held-out val cities.  Leave empty to auto-select by gsv_val_fraction.
   gsv_val_cities: []
   # Fraction of GSV cities to hold out when gsv_val_cities is empty.
