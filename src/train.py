@@ -240,6 +240,8 @@ def main():
         ks = tuple(cfg["evaluation"]["recall_ks"])
         early_stop_k = int(tcfg["early_stop_metric"].split("_")[-1])
         current_recall = 0.0
+        metrics: dict = {}
+        gsv_metrics: dict = {}
 
         if val_db_loader is not None and val_q_loader is not None:
             metrics = evaluate(model, val_db_loader, val_q_loader, device, ks=ks)
@@ -261,7 +263,7 @@ def main():
             "model": model.state_dict(),
             "optimizer": optimizer.state_dict(),
             "scheduler": scheduler.state_dict(),
-            "metrics": metrics,
+            "metrics": {**metrics, **{f"gsv_{k}": v for k, v in gsv_metrics.items()}},
             "best_recall": max(best_recall, current_recall),
             "augment": args.augment,
         }
