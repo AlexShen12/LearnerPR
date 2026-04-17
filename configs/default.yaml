@@ -24,6 +24,7 @@ student:
   gem_p_init: 3.0
   freeze_backbone_epochs: 5                 # freeze DINOv2 for first N epochs
   unfreeze_last_n_blocks: 4                 # then unfreeze last K blocks
+  backbone_lr_scale: 0.05                   # backbone LR = lr * backbone_lr_scale after unfreeze
 
 # ─── Training ────────────────────────────────────────────────────────
 training:

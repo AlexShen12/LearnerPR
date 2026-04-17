@@ -15,7 +15,11 @@
 
 # ─── Train DINOv2-S + GeM student with RKD ─────────────────────────
 # Pass AUGMENT=1 to enable data augmentation.
-# Pass RESUME=/path/to/checkpoint.pt to resume training.
+# Pass RESUME=/path/to/checkpoint.pt to resume training (restores optimizer + epoch).
+# Pass INIT_FROM=/path/to/checkpoint.pt to init model weights only (fresh schedule).
+#   Example (finetune from best checkpoint with augmentation):
+#     INIT_FROM="${LEARNERPR_REPO}/checkpoints/best.pt" AUGMENT=1 sbatch scripts/train.sl
+# INIT_FROM and RESUME are mutually exclusive.
 
 set -euo pipefail
 
@@ -34,6 +38,7 @@ BATCH_SIZE="${BATCH_SIZE:-64}"
 LR="${LR:-1e-4}"
 AUGMENT="${AUGMENT:-0}"
 RESUME="${RESUME:-}"
+INIT_FROM="${INIT_FROM:-}"
 
 mkdir -p outputs/slurm
 
@@ -44,6 +49,7 @@ echo "Batch size: $BATCH_SIZE"
 echo "LR:         $LR"
 echo "Augment:    $AUGMENT"
 echo "Resume:     ${RESUME:-none}"
+echo "Init from:  ${INIT_FROM:-none}"
 echo "GPU:        $(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)"
 echo ""
 
@@ -53,6 +59,9 @@ if [ "$AUGMENT" = "1" ]; then
 fi
 if [ -n "$RESUME" ]; then
     EXTRA_ARGS="$EXTRA_ARGS --resume $RESUME"
+fi
+if [ -n "$INIT_FROM" ]; then
+    EXTRA_ARGS="$EXTRA_ARGS --init_from $INIT_FROM"
 fi
 
 "${PYTHON}" src/train.py \

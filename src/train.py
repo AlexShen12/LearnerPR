@@ -38,6 +38,9 @@ def parse_args():
     p.add_argument("--batch_size", type=int, default=None)
     p.add_argument("--lr", type=float, default=None)
     p.add_argument("--resume", type=str, default=None, help="Path to checkpoint to resume from.")
+    p.add_argument("--init_from", type=str, default=None,
+                   help="Load model weights from checkpoint and start a fresh schedule "
+                        "(optimizer/epoch are NOT restored). Mutually exclusive with --resume.")
     return p.parse_args()
 
 
@@ -238,11 +241,25 @@ def main():
         for group, base in zip(optimizer.param_groups, base_lrs):
             group["lr"] = base * warmup_mult * cos_mult
 
-    # ── Resume ───────────────────────────────────────────────────────
+    # ── Checkpoint init / resume ─────────────────────────────────────
+    if args.resume and args.init_from:
+        raise SystemExit("ERROR: --resume and --init_from are mutually exclusive. Use one at a time.")
+
     start_epoch = 0
     best_recall = 0.0
     patience_counter = 0
-    if args.resume and os.path.exists(args.resume):
+
+    if args.init_from and os.path.exists(args.init_from):
+        # Model-weights-only init: fresh optimizer, schedule, and epoch counter.
+        ckpt = torch.load(args.init_from, map_location=device, weights_only=True)
+        missing, unexpected = model.load_state_dict(ckpt["model"], strict=False)
+        if missing:
+            print(f"  init_from: {len(missing)} missing keys (e.g. {missing[0]})")
+        if unexpected:
+            print(f"  init_from: {len(unexpected)} unexpected keys (e.g. {unexpected[0]})")
+        print(f"Initialized weights from {args.init_from} — fresh schedule starting at epoch 0.")
+
+    elif args.resume and os.path.exists(args.resume):
         ckpt = torch.load(args.resume, map_location=device, weights_only=True)
         model.load_state_dict(ckpt["model"])
         optimizer.load_state_dict(ckpt["optimizer"])
@@ -260,7 +277,7 @@ def main():
         if epoch == scfg["freeze_backbone_epochs"]:
             print(f"Epoch {epoch}: unfreezing last {scfg['unfreeze_last_n_blocks']} blocks.")
             model.unfreeze_last_n_blocks(scfg["unfreeze_last_n_blocks"])
-            backbone_lr = lr * 0.1
+            backbone_lr = lr * scfg.get("backbone_lr_scale", 0.1)
             optimizer.add_param_group({
                 "params": [p for p in model.backbone.parameters() if p.requires_grad],
                 "lr": backbone_lr,
