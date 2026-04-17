@@ -5,6 +5,54 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+def mine_batch_hard(
+    embeds: torch.Tensor,
+    place_ids: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Batch-hard triplet mining from a P×K batch.
+
+    For each anchor i, selects:
+      - Hardest positive: same place_id, largest L2 distance.
+      - Hardest negative: different place_id, smallest L2 distance.
+
+    Uses pairwise squared L2 distances computed from cosine similarities,
+    which is numerically stable for L2-normalised embeddings:
+        d^2(a, b) = 2 - 2 * cos(a, b)
+
+    Args:
+        embeds:    (N, D) L2-normalised student embeddings.
+        place_ids: (N,)  integer place identities, one per embedding.
+
+    Returns:
+        (anchor, positive, negative) each (N, D) — ready for TripletMarginLoss.
+    """
+    N = embeds.size(0)
+    # Pairwise squared L2 via cosine sim: d2[i,j] = 2 - 2*sim[i,j]
+    sim = embeds @ embeds.t()
+    dist2 = (2.0 - 2.0 * sim).clamp(min=0.0)
+
+    same = place_ids.unsqueeze(0) == place_ids.unsqueeze(1)  # (N, N) bool
+    diff = ~same
+
+    # Mask self from positives.
+    eye = torch.eye(N, dtype=torch.bool, device=embeds.device)
+    pos_mask = same & ~eye
+
+    # Hardest positive per anchor (largest distance among same-place pairs).
+    # Fill invalid positions with -inf so they are never selected.
+    pos_dist = dist2.masked_fill(~pos_mask, -1.0)
+    pos_idx = pos_dist.argmax(dim=1)
+
+    # Hardest negative per anchor (smallest distance among diff-place pairs).
+    neg_dist = dist2.masked_fill(~diff, float("inf"))
+    neg_idx = neg_dist.argmin(dim=1)
+
+    anchors = embeds
+    positives = embeds[pos_idx]
+    negatives = embeds[neg_idx]
+    return anchors, positives, negatives
+
+
 class RKDLoss(nn.Module):
     """Distance-wise Relational Knowledge Distillation.
 

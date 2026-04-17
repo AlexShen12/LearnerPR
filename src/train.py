@@ -8,6 +8,7 @@ Usage:
 """
 
 import argparse
+import math
 import os
 from pathlib import Path
 
@@ -21,11 +22,12 @@ try:
     from models.student import StudentModel
 except ImportError:
     from models.student import DINOv2GeMStudent as StudentModel
-from losses.rkd import CombinedLoss
+from losses.rkd import CombinedLoss, mine_batch_hard
 from data.msls import MSLSDataset
 from data.gsv_cities import GSVCitiesDataset, auto_val_cities, make_gsv_val_splits
 from data.cached_teacher import CachedTeacherDataset
 from data.augmentations import get_train_transform, get_eval_transform
+from data.pk_sampler import PKPlaceBatchSampler
 
 
 def parse_args():
@@ -156,10 +158,34 @@ def main():
         raise ValueError("train_datasets must contain at least one of: msls, gsv_cities")
 
     combined_train_ds = ConcatDataset(train_parts) if len(train_parts) > 1 else train_parts[0]
-    train_loader = DataLoader(
-        combined_train_ds, batch_size=batch_size, shuffle=True,
-        num_workers=4, pin_memory=True, drop_last=True,
-    )
+
+    # P×K triplet mode: only supported for GSV-only training.
+    use_triplet = tcfg.get("beta_triplet", 0.0) > 0.0
+    is_gsv_only = train_datasets_cfg == ["gsv_cities"]
+    if use_triplet and not is_gsv_only:
+        print(
+            "WARNING: P×K triplet sampling requires GSV-only training. "
+            "Mixed MSLS+GSV detected — triplet loss disabled for this run."
+        )
+        use_triplet = False
+
+    if use_triplet:
+        P = tcfg.get("triplet_p", 16)
+        K = tcfg.get("triplet_k", 4)
+        # place_ids parallel to combined_train_ds (CachedTeacherDataset wraps GSVCitiesDataset)
+        place_ids = combined_train_ds.base.place_ids
+        pk_sampler = PKPlaceBatchSampler(place_ids=place_ids, P=P, K=K)
+        train_loader = DataLoader(
+            combined_train_ds, batch_sampler=pk_sampler,
+            num_workers=4, pin_memory=True,
+        )
+        print(f"P×K sampler: P={P}, K={K}, batch={P*K}, batches/epoch={len(pk_sampler)}")
+    else:
+        train_loader = DataLoader(
+            combined_train_ds, batch_size=batch_size, shuffle=True,
+            num_workers=4, pin_memory=True, drop_last=True,
+        )
+
     print(f"Total train samples: {len(combined_train_ds)}")
 
     # MSLS val — only built when MSLS is in train_datasets.
@@ -183,7 +209,7 @@ def main():
     # ── Loss & Optimizer ─────────────────────────────────────────────
     criterion = CombinedLoss(
         alpha=tcfg["alpha_rkd"],
-        beta=tcfg["beta_triplet"],
+        beta=tcfg["beta_triplet"] if use_triplet else 0.0,
         rkd_temperature=tcfg["rkd_temperature"],
         triplet_margin=tcfg["triplet_margin"],
     )
@@ -192,7 +218,25 @@ def main():
         lr=lr,
         weight_decay=tcfg["weight_decay"],
     )
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+
+    # Base LRs tracked manually so warmup + cosine works correctly across
+    # dynamically added param groups (backbone unfreezes mid-training).
+    warmup_epochs = tcfg.get("warmup_epochs", 0)
+    base_lrs: list[float] = [lr]  # one entry per param group; grows at unfreeze
+
+    def set_lrs(epoch: int) -> None:
+        """Apply warmup-then-cosine LR to all current param groups."""
+        W = warmup_epochs
+        E = epochs
+        warmup_mult = (epoch + 1) / max(W, 1) if epoch < W else 1.0
+        if epoch < W:
+            cos_mult = 1.0
+        else:
+            t = epoch - W
+            T = max(E - W, 1)
+            cos_mult = 0.5 * (1.0 + math.cos(math.pi * t / T))
+        for group, base in zip(optimizer.param_groups, base_lrs):
+            group["lr"] = base * warmup_mult * cos_mult
 
     # ── Resume ───────────────────────────────────────────────────────
     start_epoch = 0
@@ -202,7 +246,8 @@ def main():
         ckpt = torch.load(args.resume, map_location=device, weights_only=True)
         model.load_state_dict(ckpt["model"])
         optimizer.load_state_dict(ckpt["optimizer"])
-        scheduler.load_state_dict(ckpt["scheduler"])
+        # Restore tracked base_lrs if saved, otherwise fall back to lr.
+        base_lrs = ckpt.get("base_lrs", base_lrs)
         start_epoch = ckpt["epoch"] + 1
         best_recall = ckpt.get("best_recall", 0.0)
         print(f"Resumed from epoch {start_epoch}, best R@5 = {best_recall:.4f}")
@@ -211,7 +256,7 @@ def main():
     for epoch in range(start_epoch, epochs):
         model.train()
 
-        # Unfreeze backbone after warm-up
+        # Unfreeze backbone after warm-up phases; add param group + track base LR.
         if epoch == scfg["freeze_backbone_epochs"]:
             print(f"Epoch {epoch}: unfreezing last {scfg['unfreeze_last_n_blocks']} blocks.")
             model.unfreeze_last_n_blocks(scfg["unfreeze_last_n_blocks"])
@@ -220,8 +265,11 @@ def main():
                 "params": [p for p in model.backbone.parameters() if p.requires_grad],
                 "lr": backbone_lr,
             })
-            # Register the new group with the scheduler so it follows cosine decay.
-            scheduler.base_lrs.append(backbone_lr)
+            base_lrs.append(backbone_lr)
+
+        # Apply LR schedule (warmup + cosine) at the start of each epoch.
+        set_lrs(epoch)
+        current_lr = optimizer.param_groups[0]["lr"]
 
         epoch_loss = 0.0
         for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}"):
@@ -229,7 +277,13 @@ def main():
             teacher_embeds = batch["teacher_embed"].to(device)
 
             student_embeds = model(imgs)
-            losses = criterion(student_embeds, teacher_embeds)
+
+            if use_triplet:
+                place_ids_batch = batch["place_id"].to(device)
+                anchors, positives, negatives = mine_batch_hard(student_embeds, place_ids_batch)
+                losses = criterion(student_embeds, teacher_embeds, anchors, positives, negatives)
+            else:
+                losses = criterion(student_embeds, teacher_embeds)
 
             optimizer.zero_grad()
             losses["total"].backward()
@@ -238,9 +292,8 @@ def main():
 
             epoch_loss += losses["total"].item()
 
-        scheduler.step()
         avg_loss = epoch_loss / len(train_loader)
-        print(f"Epoch {epoch+1} — loss: {avg_loss:.4f}, lr: {scheduler.get_last_lr()[0]:.2e}")
+        print(f"Epoch {epoch+1} — loss: {avg_loss:.4f}, lr: {current_lr:.2e}")
 
         # ── Validation ───────────────────────────────────────────────
         ks = tuple(cfg["evaluation"]["recall_ks"])
@@ -268,7 +321,7 @@ def main():
             "epoch": epoch,
             "model": model.state_dict(),
             "optimizer": optimizer.state_dict(),
-            "scheduler": scheduler.state_dict(),
+            "base_lrs": base_lrs,
             "metrics": {**metrics, **{f"gsv_{k}": v for k, v in gsv_metrics.items()}},
             "best_recall": max(best_recall, current_recall),
             "augment": args.augment,

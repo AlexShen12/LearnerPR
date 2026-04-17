@@ -31,11 +31,12 @@ training:
   batch_size: 64
   lr: 1.0e-4
   weight_decay: 1.0e-4
-  scheduler: cosine
-  warmup_epochs: 2
+  warmup_epochs: 2                          # linear LR warmup; cosine decay for remaining epochs
   alpha_rkd: 1.0                            # weight for RKD loss
-  beta_triplet: 0.0                        # weight for triplet loss
+  beta_triplet: 0.3                         # weight for triplet loss (active GSV-only; 0 to disable)
   triplet_margin: 0.1
+  triplet_p: 16                             # P×K sampler: places per batch
+  triplet_k: 4                              # P×K sampler: images per place (batch_size = P*K = 64)
   rkd_temperature: 0.1                      # temperature scaling on teacher sim matrix
   early_stop_patience: 5                    # epochs without val R@5 improvement
   early_stop_metric: recall_at_5
