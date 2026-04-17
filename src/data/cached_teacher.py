@@ -20,7 +20,9 @@ class CachedTeacherDataset(Dataset):
 
     def __init__(self, base_dataset: Dataset, cache_path: str):
         self.base = base_dataset
-        self.cache: dict[str, torch.Tensor] = torch.load(cache_path, map_location="cpu")
+        self.cache: dict[str, torch.Tensor] = torch.load(
+            cache_path, map_location="cpu", weights_only=True
+        )
 
     def __len__(self) -> int:
         return len(self.base)

@@ -17,7 +17,10 @@ from torch.utils.data import ConcatDataset, DataLoader
 from tqdm import tqdm
 import yaml
 
-from models.student import StudentModel
+try:
+    from models.student import StudentModel
+except ImportError:
+    from models.student import DINOv2GeMStudent as StudentModel
 from losses.rkd import CombinedLoss
 from data.msls import MSLSDataset
 from data.gsv_cities import GSVCitiesDataset, auto_val_cities, make_gsv_val_splits
@@ -156,12 +159,14 @@ def main():
     )
     print(f"Total train samples: {len(combined_train_ds)}")
 
-    # MSLS val (primary early-stopping signal, always built when MSLS is available)
-    msls_root = os.path.expandvars(cfg["paths"]["msls_root"])
-    val_db_ds = MSLSDataset(msls_root, split="val", subset="database", transform=eval_transform)
-    val_q_ds = MSLSDataset(msls_root, split="val", subset="query", transform=eval_transform)
-    val_db_loader = DataLoader(val_db_ds, batch_size=batch_size, num_workers=4, pin_memory=True)
-    val_q_loader = DataLoader(val_q_ds, batch_size=batch_size, num_workers=4, pin_memory=True)
+    # MSLS val — only built when MSLS is in train_datasets.
+    val_db_loader = val_q_loader = None
+    if "msls" in train_datasets_cfg:
+        msls_root = os.path.expandvars(cfg["paths"]["msls_root"])
+        val_db_ds = MSLSDataset(msls_root, split="val", subset="database", transform=eval_transform)
+        val_q_ds = MSLSDataset(msls_root, split="val", subset="query", transform=eval_transform)
+        val_db_loader = DataLoader(val_db_ds, batch_size=batch_size, num_workers=4, pin_memory=True)
+        val_q_loader = DataLoader(val_q_ds, batch_size=batch_size, num_workers=4, pin_memory=True)
 
     # ── Model ────────────────────────────────────────────────────────
     model = StudentModel(
@@ -191,7 +196,7 @@ def main():
     best_recall = 0.0
     patience_counter = 0
     if args.resume and os.path.exists(args.resume):
-        ckpt = torch.load(args.resume, map_location=device)
+        ckpt = torch.load(args.resume, map_location=device, weights_only=True)
         model.load_state_dict(ckpt["model"])
         optimizer.load_state_dict(ckpt["optimizer"])
         scheduler.load_state_dict(ckpt["scheduler"])
@@ -231,19 +236,24 @@ def main():
         avg_loss = epoch_loss / len(train_loader)
         print(f"Epoch {epoch+1} — loss: {avg_loss:.4f}, lr: {scheduler.get_last_lr()[0]:.2e}")
 
-        # ── Validation — MSLS (primary early-stop signal) ────────────
+        # ── Validation ───────────────────────────────────────────────
         ks = tuple(cfg["evaluation"]["recall_ks"])
-        metrics = evaluate(model, val_db_loader, val_q_loader, device, ks=ks)
-        metric_str = "  ".join(f"R@{k}: {metrics[f'recall_at_{k}']:.4f}" for k in ks)
-        print(f"  MSLS val:    {metric_str}")
+        early_stop_k = int(tcfg["early_stop_metric"].split("_")[-1])
+        current_recall = 0.0
 
-        # ── Validation — GSV-Cities (informational only) ─────────────
+        if val_db_loader is not None and val_q_loader is not None:
+            metrics = evaluate(model, val_db_loader, val_q_loader, device, ks=ks)
+            metric_str = "  ".join(f"R@{k}: {metrics[f'recall_at_{k}']:.4f}" for k in ks)
+            print(f"  MSLS val:    {metric_str}")
+            current_recall = metrics[f"recall_at_{early_stop_k}"]
+
         if gsv_val_db_loader is not None and gsv_val_q_loader is not None:
             gsv_metrics = evaluate(model, gsv_val_db_loader, gsv_val_q_loader, device, ks=ks)
             gsv_str = "  ".join(f"R@{k}: {gsv_metrics[f'recall_at_{k}']:.4f}" for k in ks)
             print(f"  GSV val:     {gsv_str}")
-
-        current_recall = metrics[f"recall_at_{tcfg['early_stop_metric'].split('_')[-1]}"]
+            # Use GSV val as early-stop signal when MSLS val is not available.
+            if val_db_loader is None:
+                current_recall = gsv_metrics[f"recall_at_{early_stop_k}"]
 
         # ── Checkpointing ────────────────────────────────────────────
         ckpt_data = {
