@@ -29,7 +29,9 @@ class CachedTeacherDataset(Dataset):
 
     def __getitem__(self, idx: int) -> dict:
         sample = self.base[idx]
-        embed = self.cache.get(sample["path"]) or self.cache.get(sample["key"])
+        embed = self.cache.get(sample["path"])
+        if embed is None:
+            embed = self.cache.get(sample["key"])
         if embed is None:
             raise KeyError(
                 f"Teacher embedding not found for {sample['path']} / {sample['key']}. "
