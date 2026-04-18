@@ -54,17 +54,19 @@ training:
 augmentation:
   random_resized_crop:
     size: 224
-    scale: [0.7, 1.0]
+    # Lower min scale → smaller crops / less fine detail (robustness to soft or distant views).
+    scale: [0.55, 1.0]
   color_jitter:
-    brightness: 0.4
-    contrast: 0.4
+    brightness: 0.45
+    contrast: 0.5
     saturation: 0.4
-    hue: 0.1
+    hue: 0.12
   random_grayscale_p: 0.1
   gaussian_blur:
-    enabled: false
+    enabled: true
     kernel_size: 23
-    sigma: [0.1, 2.0]
+    # Mild blur range (softer than [0.1, 2.0]) for camera / defocus style shift without killing texture.
+    sigma: [0.1, 1.2]
   random_horizontal_flip:
     enabled: false
     p: 0.5
