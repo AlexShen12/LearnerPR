@@ -23,6 +23,8 @@
 #   DATASETS         space-separated list         (default: "dataset_a dataset_b")
 #   BATCH_SIZE       inference batch size          (default: 128)
 #   SAVE_PREDICTIONS dir to write CSV rankings     (default: off)
+#   GPU_LOG_INTERVAL If set (e.g. 10), log nvidia-smi every N seconds while eval runs
+#                    (background). Empty = only before/after snapshots.
 #
 # Example — evaluate both datasets, save CSVs:
 #   DATASETS="dataset_a dataset_b" \
@@ -53,13 +55,32 @@ SAVE_PREDICTIONS="${SAVE_PREDICTIONS:-}"
 
 mkdir -p outputs/slurm
 
+gpu_snapshot() {
+    echo "--- GPU snapshot (${1:-}) — $(date -u +%Y-%m-%dT%H:%M:%SZ) ---"
+    nvidia-smi --query-gpu=index,name,driver_version,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.used,memory.free --format=csv,noheader || true
+    echo ""
+}
+
 echo "=== LearnerPR: Evaluate on project-vpr ==="
 echo "Checkpoint:    $CHECKPOINT"
 echo "project-vpr:   $PROJECT_VPR_ROOT"
 echo "Datasets root: $DATASETS_ROOT"
 echo "Datasets:      $DATASETS"
 echo "Batch size:    $BATCH_SIZE"
-echo "GPU:           $(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)"
+echo ""
+
+gpu_snapshot "before eval"
+if [[ -n "${GPU_LOG_INTERVAL:-}" ]] && [[ "${GPU_LOG_INTERVAL}" =~ ^[0-9]+$ ]] && [[ "${GPU_LOG_INTERVAL}" -gt 0 ]]; then
+    echo "GPU_LOG_INTERVAL=${GPU_LOG_INTERVAL}s — background nvidia-smi logging enabled."
+    # shellcheck disable=SC2094
+    while sleep "${GPU_LOG_INTERVAL}"; do
+        echo "[gpu poll $(date -u +%H:%M:%S)] $(nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader,nounits | head -1)"
+    done &
+    GPU_POLL_PID=$!
+    trap 'kill "${GPU_POLL_PID}" 2>/dev/null || true' EXIT
+fi
+
+echo "GPU: $(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)"
 echo ""
 
 EXTRA_ARGS=""
@@ -69,6 +90,7 @@ if [ -n "$SAVE_PREDICTIONS" ]; then
 fi
 
 # shellcheck disable=SC2086
+PYTHON_EXIT=0
 "${PYTHON}" scripts/eval_project_vpr.py \
     --weights         "$CHECKPOINT" \
     --project_vpr_root "$PROJECT_VPR_ROOT" \
@@ -76,6 +98,13 @@ fi
     --datasets        $DATASETS \
     --batch_size      "$BATCH_SIZE" \
     --device          cuda \
-    $EXTRA_ARGS
+    $EXTRA_ARGS \
+    || PYTHON_EXIT=$?
+if [[ -n "${GPU_POLL_PID:-}" ]]; then
+    kill "${GPU_POLL_PID}" 2>/dev/null || true
+    wait "${GPU_POLL_PID}" 2>/dev/null || true
+fi
 
-echo "=== Evaluation complete ==="
+gpu_snapshot "after eval"
+echo "=== Evaluation complete (exit ${PYTHON_EXIT}) ==="
+exit "${PYTHON_EXIT}"

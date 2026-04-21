@@ -248,6 +248,9 @@ def main() -> None:
         print(f"WARNING: CUDA not available, falling back to CPU.")
         device = torch.device("cpu")
 
+    if device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
+
     print("=" * 60)
     print("LearnerPR → project-vpr evaluation")
     print("=" * 60)
@@ -290,6 +293,15 @@ def main() -> None:
             if res:
                 line = "  ".join(f"{k}: {v:.2f}%" for k, v in res.items())
                 print(f"  {ds_name}: {line}")
+
+    if device.type == "cuda":
+        alloc_peak = torch.cuda.max_memory_allocated(device) / (1024**3)
+        reserved_peak = torch.cuda.max_memory_reserved(device) / (1024**3)
+        print(f"\n{'─' * 60}")
+        print(
+            "GPU memory (PyTorch peak this run): "
+            f"allocated max {alloc_peak:.3f} GiB, reserved max {reserved_peak:.3f} GiB"
+        )
 
 
 if __name__ == "__main__":
